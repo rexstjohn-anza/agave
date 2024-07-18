@@ -777,19 +777,12 @@ pub mod layout {
             } => {
                 merkle::ShredData::get_retransmitter_signature_offset(proof_size, chained, resigned)
             }
-<<<<<<< HEAD
         }?;
-=======
-        }
-    }
-
-    pub fn get_retransmitter_signature(shred: &[u8]) -> Result<Signature, Error> {
-        let offset = get_retransmitter_signature_offset(shred)?;
-        shred
-            .get(offset..offset + SIZE_OF_SIGNATURE)
-            .map(|bytes| <[u8; SIZE_OF_SIGNATURE]>::try_from(bytes).unwrap())
-            .map(Signature::from)
-            .ok_or(Error::InvalidPayloadSize(shred.len()))
+        let Some(buffer) = shred.get_mut(offset..offset + SIZE_OF_SIGNATURE) else {
+            return Err(Error::InvalidPayloadSize(shred.len()));
+        };
+        buffer.copy_from_slice(signature.as_ref());
+        Ok(())
     }
 
     pub fn is_retransmitter_signed_variant(shred: &[u8]) -> Result<bool, Error> {
@@ -806,19 +799,6 @@ pub mod layout {
                 resigned,
             } => Ok(resigned),
         }
-    }
-
-    pub(crate) fn set_retransmitter_signature(
-        shred: &mut [u8],
-        signature: &Signature,
-    ) -> Result<(), Error> {
-        let offset = get_retransmitter_signature_offset(shred)?;
->>>>>>> 93edb65f7d (replay: extend last fec set check for 32+ retransmitter signed shreds (#2101))
-        let Some(buffer) = shred.get_mut(offset..offset + SIZE_OF_SIGNATURE) else {
-            return Err(Error::InvalidPayloadSize(shred.len()));
-        };
-        buffer.copy_from_slice(signature.as_ref());
-        Ok(())
     }
 
     /// Resigns the shred's Merkle root as the retransmitter node in the
