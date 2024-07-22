@@ -13,7 +13,7 @@ on your preferred workflow:
 - [Build from Source](#build-from-source)
 - [Use Homebrew](#use-homebrew)
 
-## Use Solana's Install Tool
+## Use The Solana Install Tool
 
 ### MacOS & Linux
 
