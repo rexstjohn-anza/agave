@@ -3,7 +3,7 @@ title: Backward Compatibility Policy
 ---
 
 As the Solana developer ecosystem grows, so does the need for clear expectations around
-breaking API and behavior changes affecting applications and tooling built for Solana.
+breaking API and behavior changes affecting applications and tooling built for Solana by Anza.
 In a perfect world, Solana development could continue at a very fast pace without ever
 causing issues for existing developers. However, some compromises will need to be made
 and so this document attempts to clarify and codify the process for new releases. Furthermore,
