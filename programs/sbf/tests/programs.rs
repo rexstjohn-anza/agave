@@ -46,7 +46,7 @@ use {
         compute_budget::ComputeBudgetInstruction,
         entrypoint::MAX_PERMITTED_DATA_INCREASE,
         feature_set::{self, FeatureSet},
-        fee::FeeStructure,
+        fee::{FeeBudgetLimits, FeeStructure},
         fee_calculator::FeeRateGovernor,
         genesis_config::ClusterType,
         hash::Hash,
@@ -175,16 +175,16 @@ fn execute_transactions(
             post_token_balances,
         )| {
             match execution_result {
-                TransactionExecutionResult::Executed { details, .. } => {
+                TransactionExecutionResult::Executed(executed_tx) => {
+                    let fee_details = executed_tx.loaded_transaction.fee_details;
                     let TransactionExecutionDetails {
                         status,
                         log_messages,
                         inner_instructions,
-                        fee_details,
                         return_data,
                         executed_units,
                         ..
-                    } = details;
+                    } = executed_tx.execution_details;
 
                     let inner_instructions = inner_instructions.map(|inner_instructions| {
                         map_inner_instructions(inner_instructions).collect()
@@ -3890,13 +3890,15 @@ fn test_program_fees() {
         &ReservedAccountKeys::empty_key_set(),
     )
     .unwrap();
-    let expected_normal_fee = fee_structure.calculate_fee(
+    let fee_budget_limits = FeeBudgetLimits::from(
+        process_compute_budget_instructions(sanitized_message.program_instructions_iter())
+            .unwrap_or_default(),
+    );
+    let expected_normal_fee = solana_fee::calculate_fee(
         &sanitized_message,
-        congestion_multiplier,
-        &process_compute_budget_instructions(sanitized_message.program_instructions_iter())
-            .unwrap_or_default()
-            .into(),
-        false,
+        congestion_multiplier == 0,
+        fee_structure.lamports_per_signature,
+        fee_budget_limits.prioritization_fee,
         true,
     );
     bank_client
@@ -3918,13 +3920,15 @@ fn test_program_fees() {
         &ReservedAccountKeys::empty_key_set(),
     )
     .unwrap();
-    let expected_prioritized_fee = fee_structure.calculate_fee(
+    let fee_budget_limits = FeeBudgetLimits::from(
+        process_compute_budget_instructions(sanitized_message.program_instructions_iter())
+            .unwrap_or_default(),
+    );
+    let expected_prioritized_fee = solana_fee::calculate_fee(
         &sanitized_message,
-        congestion_multiplier,
-        &process_compute_budget_instructions(sanitized_message.program_instructions_iter())
-            .unwrap_or_default()
-            .into(),
-        false,
+        congestion_multiplier == 0,
+        fee_structure.lamports_per_signature,
+        fee_budget_limits.prioritization_fee,
         true,
     );
     assert!(expected_normal_fee < expected_prioritized_fee);

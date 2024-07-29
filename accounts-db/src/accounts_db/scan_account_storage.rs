@@ -11,7 +11,7 @@ use {
     },
     rayon::prelude::*,
     solana_measure::{measure::Measure, measure_us},
-    solana_sdk::{clock::Slot, hash::Hash, pubkey::Pubkey},
+    solana_sdk::{account::ReadableAccount as _, clock::Slot, hash::Hash, pubkey::Pubkey},
     std::{
         hash::{DefaultHasher, Hash as _, Hasher as _},
         ops::Range,
@@ -79,14 +79,7 @@ impl<'a> AppendVecScan for ScanState<'a> {
 
         let hash_is_missing = account_hash == AccountHash(Hash::default());
         if hash_is_missing {
-            let computed_hash = AccountsDb::hash_account_data(
-                loaded_account.lamports(),
-                loaded_account.owner(),
-                loaded_account.executable(),
-                loaded_account.rent_epoch(),
-                loaded_account.data(),
-                loaded_account.pubkey(),
-            );
+            let computed_hash = AccountsDb::hash_account(loaded_account, loaded_account.pubkey());
             account_hash = computed_hash;
         }
         let source_item = CalculateHashIntermediate {
@@ -367,7 +360,7 @@ mod tests {
             append_vec::AppendVec,
             cache_hash_data::{CacheHashDataFile, DeletionPolicy as CacheHashDeletionPolicy},
         },
-        solana_sdk::account::{AccountSharedData, ReadableAccount as _},
+        solana_sdk::account::AccountSharedData,
         tempfile::TempDir,
         test_case::test_case,
     };
