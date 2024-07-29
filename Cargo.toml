@@ -37,6 +37,7 @@ members = [
     "download-utils",
     "entry",
     "faucet",
+    "fee",
     "frozen-abi",
     "frozen-abi/macro",
     "genesis",
@@ -106,6 +107,7 @@ members = [
     "sdk/macro",
     "sdk/package-metadata-macro",
     "sdk/program",
+    "sdk/program-memory",
     "send-transaction-service",
     "short-vec",
     "stake-accounts",
@@ -165,7 +167,7 @@ ark-ec = "0.4.0"
 ark-ff = "0.4.0"
 ark-serialize = "0.4.0"
 array-bytes = "=1.4.1"
-arrayref = "0.3.7"
+arrayref = "0.3.8"
 arrayvec = "0.7.4"
 assert_cmd = "2.0"
 assert_matches = "1.5.0"
@@ -239,7 +241,7 @@ humantime = "2.0.1"
 hyper = "0.14.30"
 hyper-proxy = "0.9.1"
 im = "15.1.0"
-index_list = "0.2.12"
+index_list = "0.2.13"
 indexmap = "2.2.6"
 indicatif = "0.17.8"
 itertools = "0.12.1"
@@ -265,7 +267,7 @@ libsecp256k1 = { version = "0.6.0", default-features = false, features = [
 light-poseidon = "0.2.0"
 log = "0.4.22"
 lru = "0.7.7"
-lz4 = "1.25.0"
+lz4 = "1.26.0"
 memmap2 = "0.5.10"
 memoffset = "0.9"
 merlin = "3"
@@ -315,7 +317,7 @@ seqlock = "0.2.0"
 serde = "1.0.204" # must match the serde_derive version, see https://github.com/serde-rs/serde/issues/2584#issuecomment-1685252251
 serde_bytes = "0.11.15"
 serde_derive = "1.0.204" # must match the serde version, see https://github.com/serde-rs/serde/issues/2584#issuecomment-1685252251
-serde_json = "1.0.120"
+serde_json = "1.0.121"
 serde_with = { version = "2.3.3", default-features = false }
 serde_yaml = "0.9.34"
 serial_test = "2.0.0"
@@ -359,6 +361,7 @@ solana-define-syscall = { path = "define-syscall", version = "=2.1.0" }
 solana-download-utils = { path = "download-utils", version = "=2.1.0" }
 solana-entry = { path = "entry", version = "=2.1.0" }
 solana-faucet = { path = "faucet", version = "=2.1.0" }
+solana-fee = { path = "fee", version = "=2.1.0" }
 solana-frozen-abi = { path = "frozen-abi", version = "=2.1.0" }
 solana-frozen-abi-macro = { path = "frozen-abi/macro", version = "=2.1.0" }
 solana-tps-client = { path = "tps-client", version = "=2.1.0" }
@@ -368,6 +371,7 @@ agave-geyser-plugin-interface = { path = "geyser-plugin-interface", version = "=
 solana-geyser-plugin-manager = { path = "geyser-plugin-manager", version = "=2.1.0" }
 solana-gossip = { path = "gossip", version = "=2.1.0" }
 solana-inline-spl = { path = "inline-spl", version = "=2.1.0" }
+solana-lattice-hash = { path = "lattice-hash", version = "=2.1.0" }
 solana-ledger = { path = "ledger", version = "=2.1.0" }
 solana-loader-v4-program = { path = "programs/loader-v4", version = "=2.1.0" }
 solana-local-cluster = { path = "local-cluster", version = "=2.1.0" }
@@ -384,6 +388,7 @@ solana-perf = { path = "perf", version = "=2.1.0" }
 solana-poh = { path = "poh", version = "=2.1.0" }
 solana-poseidon = { path = "poseidon", version = "=2.1.0" }
 solana-program = { path = "sdk/program", version = "=2.1.0", default-features = false }
+solana-program-memory = { path = "sdk/program-memory", version = "=2.1.0" }
 solana-program-runtime = { path = "program-runtime", version = "=2.1.0" }
 solana-program-test = { path = "program-test", version = "=2.1.0" }
 solana-pubsub-client = { path = "pubsub-client", version = "=2.1.0" }

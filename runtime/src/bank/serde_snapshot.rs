@@ -11,8 +11,8 @@ mod tests {
             genesis_utils::activate_all_features,
             runtime_config::RuntimeConfig,
             serde_snapshot::{
-                self, BankIncrementalSnapshotPersistence, SerdeAccountsHash,
-                SerdeIncrementalAccountsHash, SnapshotStreams,
+                self, BankIncrementalSnapshotPersistence, ExtraFieldsToSerialize,
+                SerdeAccountsHash, SerdeIncrementalAccountsHash, SnapshotStreams,
             },
             snapshot_bank_utils,
             snapshot_utils::{
@@ -59,8 +59,7 @@ mod tests {
         for storage_entry in storage_entries.into_iter() {
             // Copy file to new directory
             let storage_path = storage_entry.path();
-            let file_name =
-                AccountsFile::file_name(storage_entry.slot(), storage_entry.append_vec_id());
+            let file_name = AccountsFile::file_name(storage_entry.slot(), storage_entry.id());
             let output_path = output_dir.as_ref().join(file_name);
             std::fs::copy(storage_path, &output_path)?;
 
@@ -72,15 +71,15 @@ mod tests {
             )?;
             let new_storage_entry = AccountStorageEntry::new_existing(
                 storage_entry.slot(),
-                storage_entry.append_vec_id(),
+                storage_entry.id(),
                 accounts_file,
                 num_accounts,
             );
-            next_append_vec_id = next_append_vec_id.max(new_storage_entry.append_vec_id());
+            next_append_vec_id = next_append_vec_id.max(new_storage_entry.id());
             storage.insert(
                 new_storage_entry.slot(),
                 AccountStorageReference {
-                    id: new_storage_entry.append_vec_id(),
+                    id: new_storage_entry.id(),
                     storage: Arc::new(new_storage_entry),
                 },
             );
@@ -169,8 +168,12 @@ mod tests {
             accounts_db.get_accounts_delta_hash(bank2_slot).unwrap(),
             expected_accounts_hash,
             &get_storages_to_serialize(&bank2.get_snapshot_storages(None)),
-            expected_incremental_snapshot_persistence.as_ref(),
-            expected_epoch_accounts_hash,
+            ExtraFieldsToSerialize {
+                lamports_per_signature: bank2.fee_rate_governor.lamports_per_signature,
+                incremental_snapshot_persistence: expected_incremental_snapshot_persistence
+                    .as_ref(),
+                epoch_accounts_hash: expected_epoch_accounts_hash,
+            },
             accounts_db.write_version.load(Ordering::Acquire),
         )
         .unwrap();
@@ -228,10 +231,6 @@ mod tests {
             assert_eq!(dbank.get_accounts_hash(), Some(expected_accounts_hash));
             assert_eq!(dbank.get_incremental_accounts_hash(), None);
         }
-        assert_eq!(
-            dbank.incremental_snapshot_persistence,
-            expected_incremental_snapshot_persistence,
-        );
         assert_eq!(
             dbank.get_epoch_accounts_hash_to_serialize(),
             expected_epoch_accounts_hash,
@@ -506,7 +505,7 @@ mod tests {
         #[cfg_attr(
             feature = "frozen-abi",
             derive(AbiExample),
-            frozen_abi(digest = "6riNuebfnAUpS2e3GYb5G8udH5PoEtep48ULchLjRDCB")
+            frozen_abi(digest = "AMm4uzGQ6E7fj8MkDjUtFR7kYAjtUyWddXAPLjwaqKqV")
         )]
         #[derive(Serialize)]
         pub struct BankAbiTestWrapper {
@@ -538,8 +537,11 @@ mod tests {
                 AccountsDeltaHash(Hash::new_unique()),
                 AccountsHash(Hash::new_unique()),
                 &get_storages_to_serialize(&snapshot_storages),
-                Some(&incremental_snapshot_persistence),
-                Some(EpochAccountsHash::new(Hash::new_unique())),
+                ExtraFieldsToSerialize {
+                    lamports_per_signature: bank.fee_rate_governor.lamports_per_signature,
+                    incremental_snapshot_persistence: Some(&incremental_snapshot_persistence),
+                    epoch_accounts_hash: Some(EpochAccountsHash::new(Hash::new_unique())),
+                },
                 StoredMetaWriteVersion::default(),
             )
         }
