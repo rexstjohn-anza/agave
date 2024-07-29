@@ -2,7 +2,7 @@
 title: What is a Validator?
 ---
 
-A validator is a computer that helps to run the Solana network. Each validator executes a program that keeps track of all accounts on the Solana cluster and validates transactions being added to the network. Without validators, Solana would not be able to function. Agave is one of several possible validator clients developers can use to help run the Solana network.
+A validator is a computer that helps to run the Solana network. Each validator executes a program that keeps track of all accounts on the Solana cluster and validates transactions being added to the network. Without validators, Solana would not be able to function. Agave is one of several possible validator clients operators can use to help run the Solana network.
 
 The more independent entities that run validators, the less vulnerable the cluster is to an attack or catastrophe that affects the cluster.
 
