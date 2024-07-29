@@ -27,7 +27,7 @@ use {
     solana_entry::entry::{
         self, create_ticks, Entry, EntrySlice, EntryType, EntryVerificationStatus, VerifyRecyclers,
     },
-    solana_measure::{measure, measure::Measure},
+    solana_measure::{measure::Measure, measure_us},
     solana_metrics::datapoint_error,
     solana_rayon_threadlimit::{get_max_thread_count, get_thread_count},
     solana_runtime::{
@@ -45,6 +45,7 @@ use {
     solana_sdk::{
         clock::{Slot, MAX_PROCESSING_AGE},
         feature_set,
+        fee::FeeDetails,
         genesis_config::GenesisConfig,
         hash::Hash,
         pubkey::Pubkey,
@@ -187,24 +188,23 @@ pub fn execute_batch(
         ..
     } = tx_results;
 
-    let (check_block_cost_limits_result, check_block_cost_limits_time): (Result<()>, Measure) =
-        measure!(if bank
-            .feature_set
-            .is_active(&feature_set::apply_cost_tracker_during_replay::id())
-        {
-            check_block_cost_limits(
-                bank,
-                &loaded_accounts_stats,
-                &execution_results,
-                batch.sanitized_transactions(),
-            )
-        } else {
-            Ok(())
-        });
+    let (check_block_cost_limits_result, check_block_cost_limits_us) = measure_us!(if bank
+        .feature_set
+        .is_active(&feature_set::apply_cost_tracker_during_replay::id())
+    {
+        check_block_cost_limits(
+            bank,
+            &loaded_accounts_stats,
+            &execution_results,
+            batch.sanitized_transactions(),
+        )
+    } else {
+        Ok(())
+    });
 
     timings.saturating_add_in_place(
         ExecuteTimingType::CheckBlockLimitsUs,
-        check_block_cost_limits_time.as_us(),
+        check_block_cost_limits_us,
     );
     check_block_cost_limits_result?;
 
@@ -328,20 +328,15 @@ fn execute_batches_internal(
                 let transaction_count =
                     transaction_batch.batch.sanitized_transactions().len() as u64;
                 let mut timings = ExecuteTimings::default();
-                let (result, execute_batches_time): (Result<()>, Measure) = measure!(
-                    {
-                        execute_batch(
-                            transaction_batch,
-                            bank,
-                            transaction_status_sender,
-                            replay_vote_sender,
-                            &mut timings,
-                            log_messages_bytes_limit,
-                            prioritization_fee_cache,
-                        )
-                    },
-                    "execute_batch",
-                );
+                let (result, execute_batches_us) = measure_us!(execute_batch(
+                    transaction_batch,
+                    bank,
+                    transaction_status_sender,
+                    replay_vote_sender,
+                    &mut timings,
+                    log_messages_bytes_limit,
+                    prioritization_fee_cache,
+                ));
 
                 let thread_index = replay_tx_thread_pool.current_thread_index().unwrap();
                 execution_timings_per_thread
@@ -354,14 +349,14 @@ fn execute_batches_internal(
                             total_transactions_executed,
                             execute_timings: total_thread_execute_timings,
                         } = thread_execution_time;
-                        *total_thread_us += execute_batches_time.as_us();
+                        *total_thread_us += execute_batches_us;
                         *total_transactions_executed += transaction_count;
                         total_thread_execute_timings
                             .saturating_add_in_place(ExecuteTimingType::TotalBatchesLen, 1);
                         total_thread_execute_timings.accumulate(&timings);
                     })
                     .or_insert(ThreadExecuteTimings {
-                        total_thread_us: execute_batches_time.as_us(),
+                        total_thread_us: execute_batches_us,
                         total_transactions_executed: transaction_count,
                         execute_timings: timings,
                     });
@@ -2138,7 +2133,7 @@ pub enum TransactionStatusMessage {
 pub struct TransactionStatusBatch {
     pub bank: Arc<Bank>,
     pub transactions: Vec<SanitizedTransaction>,
-    pub execution_results: Vec<Option<TransactionExecutionDetails>>,
+    pub execution_results: Vec<Option<(TransactionExecutionDetails, FeeDetails)>>,
     pub balances: TransactionBalancesSet,
     pub token_balances: TransactionTokenBalancesSet,
     pub rent_debits: Vec<RentDebits>,
@@ -2171,7 +2166,10 @@ impl TransactionStatusSender {
                 execution_results: execution_results
                     .into_iter()
                     .map(|result| match result {
-                        TransactionExecutionResult::Executed { details, .. } => Some(details),
+                        TransactionExecutionResult::Executed(executed_tx) => Some((
+                            executed_tx.execution_details,
+                            executed_tx.loaded_transaction.fee_details,
+                        )),
                         TransactionExecutionResult::NotExecuted(_) => None,
                     })
                     .collect(),
@@ -2278,7 +2276,10 @@ pub mod tests {
             system_transaction,
             transaction::{Transaction, TransactionError},
         },
-        solana_svm::transaction_processor::ExecutionRecordingConfig,
+        solana_svm::{
+            account_loader::LoadedTransaction, transaction_processor::ExecutionRecordingConfig,
+            transaction_results::ExecutedTransaction,
+        },
         solana_vote::vote_account::VoteAccount,
         solana_vote_program::{
             self,
@@ -5113,18 +5114,18 @@ pub mod tests {
             .set_limits(u64::MAX, block_limit, u64::MAX);
         let txs = vec![tx.clone(), tx];
         let results = vec![
-            TransactionExecutionResult::Executed {
-                details: TransactionExecutionDetails {
+            TransactionExecutionResult::Executed(Box::new(ExecutedTransaction {
+                loaded_transaction: LoadedTransaction::default(),
+                execution_details: TransactionExecutionDetails {
                     status: Ok(()),
                     log_messages: None,
                     inner_instructions: None,
-                    fee_details: solana_sdk::fee::FeeDetails::default(),
                     return_data: None,
                     executed_units: actual_execution_cu,
                     accounts_data_len_delta: 0,
                 },
                 programs_modified_by_tx: HashMap::new(),
-            },
+            })),
             TransactionExecutionResult::NotExecuted(TransactionError::AccountNotFound),
         ];
         let loaded_accounts_stats = vec![
