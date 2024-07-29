@@ -129,13 +129,6 @@ The release process is as follows:
 
 ### Infrastructure Changes
 
-#### Public API Nodes
-
-Anza provides publicly available RPC API nodes for all developers to use. The Anza team
-will make their best effort to communicate any changes to the host, port, rate-limiting behavior,
-availability, etc. However, we recommend that developers rely on their own validator nodes to
-discourage dependence upon Solana operated nodes.
-
 #### Local cluster scripts and Docker images
 
 Breaking changes will be limited to `MAJOR` version updates. `MINOR` and `PATCH` updates should always
