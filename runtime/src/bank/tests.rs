@@ -100,7 +100,10 @@ use {
         transaction_context::TransactionAccount,
     },
     solana_stake_program::stake_state::{self, StakeStateV2},
-    solana_svm::nonce_info::NoncePartial,
+    solana_svm::{
+        account_loader::LoadedTransaction, nonce_info::NoncePartial,
+        transaction_results::ExecutedTransaction,
+    },
     solana_timings::ExecuteTimings,
     solana_vote_program::{
         vote_instruction,
@@ -229,18 +232,21 @@ fn test_race_register_tick_freeze() {
 }
 
 fn new_execution_result(status: Result<()>, fee_details: FeeDetails) -> TransactionExecutionResult {
-    TransactionExecutionResult::Executed {
-        details: TransactionExecutionDetails {
+    TransactionExecutionResult::Executed(Box::new(ExecutedTransaction {
+        loaded_transaction: LoadedTransaction {
+            fee_details,
+            ..LoadedTransaction::default()
+        },
+        execution_details: TransactionExecutionDetails {
             status,
             log_messages: None,
             inner_instructions: None,
-            fee_details,
             return_data: None,
             executed_units: 0,
             accounts_data_len_delta: 0,
         },
         programs_modified_by_tx: HashMap::new(),
-    }
+    }))
 }
 
 impl Bank {
@@ -2866,7 +2872,7 @@ fn test_filter_program_errors_and_collect_fee() {
     bank.deactivate_feature(&feature_set::reward_full_priority_fee::id());
 
     let tx_fee = 42;
-    let fee_details = FeeDetails::new_for_tests(tx_fee, 0, false);
+    let fee_details = FeeDetails::new(tx_fee, 0, false);
     let results = vec![
         new_execution_result(Ok(()), fee_details),
         new_execution_result(
@@ -2899,7 +2905,7 @@ fn test_filter_program_errors_and_collect_priority_fee() {
     bank.deactivate_feature(&feature_set::reward_full_priority_fee::id());
 
     let priority_fee = 42;
-    let fee_details: FeeDetails = FeeDetails::new_for_tests(0, priority_fee, false);
+    let fee_details: FeeDetails = FeeDetails::new(0, priority_fee, false);
     let results = vec![
         new_execution_result(Ok(()), fee_details),
         new_execution_result(
@@ -5876,18 +5882,15 @@ fn test_pre_post_transaction_balances() {
 
     // Failed transactions still produce balance sets
     // This is an InstructionError - fees charged
-    assert_matches!(
-        transaction_results.execution_results[2],
-        TransactionExecutionResult::Executed {
-            details: TransactionExecutionDetails {
-                status: Err(TransactionError::InstructionError(
-                    0,
-                    InstructionError::Custom(1),
-                )),
-                ..
-            },
-            ..
-        }
+    let executed_tx = transaction_results.execution_results[2]
+        .executed_transaction()
+        .unwrap();
+    assert_eq!(
+        executed_tx.execution_details.status,
+        Err(TransactionError::InstructionError(
+            0,
+            InstructionError::Custom(1),
+        )),
     );
     assert_eq!(
         transaction_balances_set.pre_balances[2],
@@ -10025,11 +10028,17 @@ fn calculate_test_fee(
     lamports_per_signature: u64,
     fee_structure: &FeeStructure,
 ) -> u64 {
-    let budget_limits = process_compute_budget_instructions(message.program_instructions_iter())
-        .unwrap_or_default()
-        .into();
-
-    fee_structure.calculate_fee(message, lamports_per_signature, &budget_limits, false, true)
+    let fee_budget_limits = FeeBudgetLimits::from(
+        process_compute_budget_instructions(message.program_instructions_iter())
+            .unwrap_or_default(),
+    );
+    solana_fee::calculate_fee(
+        message,
+        lamports_per_signature == 0,
+        fee_structure.lamports_per_signature,
+        fee_budget_limits.prioritization_fee,
+        true,
+    )
 }
 
 #[test]
@@ -12867,7 +12876,7 @@ fn test_filter_program_errors_and_collect_fee_details() {
     let initial_payer_balance = 7_000;
     let tx_fee = 5000;
     let priority_fee = 1000;
-    let tx_fee_details = FeeDetails::new_for_tests(tx_fee, priority_fee, false);
+    let tx_fee_details = FeeDetails::new(tx_fee, priority_fee, false);
     let expected_collected_fee_details = CollectorFeeDetails {
         transaction_fee: 2 * tx_fee,
         priority_fee: 2 * priority_fee,
